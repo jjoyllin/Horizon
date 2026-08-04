@@ -43,17 +43,21 @@ jobs:
           LWN_KEY: ${{ secrets.LWN_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           HORIZON_WEBHOOK_URL: ${{ secrets.HORIZON_WEBHOOK_URL }}
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
         run: uv run horizon --hours 24
 
-      - name: Set current date as environment variable
-        run: echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
-          keep_files: true  # Keep existing summaries on gh-pages branch
-          commit_message: "📝 Daily Summary: ${{ env.DATE }}"
-          publish_branch: gh-pages
-          enable_jekyll: true
+      - name: Send report to DingTalk (optional)
+        if: success()
+        env:
+          WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          SECRET: ${{ secrets.DINGTALK_SECRET }}
+        run: |
+          REPORT=$(cat docs/daily_report.md 2>/dev/null || echo "今日暂无日报")
+          # 这里可以用钉钉官方签名算法对 timestamp + SECRET 做签名，然后把 sign 与 timestamp 放在 URL 参数
+          # 简化示例：直接 POST 文本（请在生产环境里正确实现签名以确保安全）
+          curl -X POST "$WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$REPORT\"}}"
