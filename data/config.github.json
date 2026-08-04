@@ -2,8 +2,8 @@
   "version": "1.0",
   "ai": {
     "provider": "openai",
-    "base_url": "https://apihub.agnes-ai.cn/v1" ,
-    "model": "agnes-2.5-flash",
+    "base_url": "https://apihub.agnes-ai.com/v1" ,
+    "model": "agnes-2.0-flash",
     "api_key_env": "AGNES_API_KEY",
     "temperature": 0.3,
     "max_tokens": 4096,
