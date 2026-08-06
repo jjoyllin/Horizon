@@ -61,6 +61,9 @@ class ContentAnalyzer:
         concurrency = self._get_concurrency()
         semaphore = asyncio.Semaphore(concurrency)
 
+        self.console.print("item:")
+        self.console.print(items)
+
         async def _process(item: ContentItem, index: int, progress_task) -> ContentItem:
             async with semaphore:
                 try:
@@ -165,7 +168,9 @@ class ContentAnalyzer:
         parsed = self._parse_json_response(response)
         try:
             result = AnalysisResult.model_validate(parsed) if parsed is not None else None
-        except ValidationError:
+            self.console.print(result)
+        except ValidationError as e:
+            self.console.print(f"_analyze_item error: {e}")
             result = None
         if result is None:
             logger.warning("Could not parse analysis response for %s, using defaults", item.id)
