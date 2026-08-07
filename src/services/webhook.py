@@ -1,13 +1,17 @@
 """Webhook notification service for Horizon."""
-
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
 import re
+import time
+
 from rich.console import Console
 from dataclasses import asdict, dataclass
 from enum import Enum
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit, urlencode, parse_qsl
 from datetime import datetime, timezone
 from typing import Any, List, Optional, Union, cast
 import httpx
@@ -244,6 +248,67 @@ def redact_headers(headers: dict[str, str]) -> dict[str, str]:
         key: "<redacted>" if _SENSITIVE_HEADER_RE.search(key) else value
         for key, value in headers.items()
     }
+
+def _generate_dingtalk_sign(secret: str, timestamp: int) -> tuple[int, str]:
+    """Generate DingTalk signed URL parameters.
+
+    Args:
+        secret: The DingTalk webhook secret
+        timestamp: Current timestamp in milliseconds
+
+    Returns:
+        Tuple of (timestamp, sign)
+    """
+    string_to_sign = f"{timestamp}\n{secret}"
+    hmac_code = hmac.new(
+        secret.encode("utf-8"),
+        string_to_sign.encode("utf-8"),
+        digestmod=hashlib.sha256
+    ).digest()
+    sign = base64.b64encode(hmac_code).decode("utf-8")
+    return timestamp, sign
+
+
+def _add_dingtalk_sign(url: str, config: "WebhookConfig") -> str:
+    """Add DingTalk sign parameters to URL if sign is enabled.
+
+    Args:
+        url: The original webhook URL
+        config: Webhook configuration
+
+    Returns:
+        URL with sign parameters appended
+    """
+    if not config.sign_enabled or not config.sign_secret_env:
+        return url
+
+    secret = os.getenv(config.sign_secret_env)
+    if not secret:
+        logger.warning(
+            "DingTalk sign enabled but env var '%s' is not set, sending without sign.",
+            config.sign_secret_env,
+        )
+        return url
+
+    timestamp = int(time.time() * 1000)
+    _, sign = _generate_dingtalk_sign(secret, timestamp)
+
+    # Parse URL and add query parameters
+    parsed = urlsplit(url)
+    # Build query string with sign parameters
+    query_params = dict(parse_qsl(parsed.query)) if parsed.query else {}
+    query_params["timestamp"] = str(timestamp)
+    query_params["sign"] = sign
+
+    # Reconstruct URL with new query string
+    new_query = urlencode(query_params)
+    return urlunsplit((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        new_query,
+        parsed.fragment
+    ))
 
 
 class WebhookNotifier:

@@ -57,7 +57,17 @@ jobs:
         run: |
           REPORT=$(cat docs/daily_report.md 2>/dev/null || echo "今日暂无日报")
           # 这里可以用钉钉官方签名算法对 timestamp + SECRET 做签名，然后把 sign 与 timestamp 放在 URL 参数
-          # 简化示例：直接 POST 文本（请在生产环境里正确实现签名以确保安全）
-          curl -X POST "$WEBHOOK_URL" \
+          SIGNED_URL=$(uv run python -c "
+            import os, sys
+            sys.path.insert(0, 'src')
+            from services.webhook import _add_dingtalk_sign
+            from models import WebhookConfig
+            config = WebhookConfig(
+                enabled=True, url_env='WEBHOOK_URL', sign_enabled=True, sign_secret_env='SECRET',
+                request_body=None, headers=None, platform=None, languages=None, delivery=None, overview_position=None
+            )
+            print(_add_dingtalk_sign(os.environ['WEBHOOK_URL'], config))
+            ")
+          curl -X POST "$SIGNED_URL" \
             -H 'Content-Type: application/json' \
             -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$REPORT\"}}"
