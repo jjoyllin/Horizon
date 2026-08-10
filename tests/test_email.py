@@ -37,11 +37,11 @@ class FakeIMAP:
 def _email_config(**overrides):
     data = {
         "enabled": True,
-        "smtp_server": "smtp.example.com",
+        "smtp_server": "smtp.qq.com",
         "smtp_port": 465,
-        "imap_server": "imap.example.com",
+        "imap_server": "imap.qq.com",
         "imap_port": 993,
-        "email_address": "noreply@example.com",
+        "email_address": "2974470566@qq.com",
         "password_env": "EMAIL_PASSWORD",
     }
     data.update(overrides)
@@ -56,14 +56,14 @@ def test_send_daily_summary_uses_smtp_username_when_configured(monkeypatch):
     config = _email_config(smtp_username="resend")
     manager = EmailManager(config)
 
-    manager.send_daily_summary("# Hello", "Daily", ["user@example.com"])
+    manager.send_daily_summary("# Hello", "Daily", ["2974470566@qq.com"])
 
     smtp = FakeSMTP.instances[0]
     assert smtp.login_calls == [("resend", "secret")]
     assert len(smtp.messages) == 1
     assert isinstance(smtp.messages[0], MIMEMultipart)
-    assert smtp.messages[0]["From"] == "Horizon Daily <noreply@example.com>"
-    assert smtp.messages[0]["To"] == "user@example.com"
+    assert smtp.messages[0]["From"] == "Horizon Daily <2974470566@qq.com>"
+    assert smtp.messages[0]["To"] == "2974470566@qq.com"
 
 
 def test_send_daily_summary_falls_back_to_email_address_for_smtp_login(monkeypatch):

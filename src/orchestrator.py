@@ -303,8 +303,12 @@ class HorizonOrchestrator:
                 if self.email_manager and self.config.email and self.config.email.enabled:
                     self.console.print(f"📧 Sending {lang.upper()} email summary...")
                     subscribers = self.storage.load_subscribers()
+                    configured_recipients = self.config.email.recipients or []
+                    all_recipients = list(dict.fromkeys(configured_recipients + subscribers))
+                    if not all_recipients:
+                        all_recipients = [self.config.email.email_address]
                     subject = f"Horizon Summary ({lang.upper()}) - {today}"
-                    self.email_manager.send_daily_summary(summary, subject, subscribers)
+                    self.email_manager.send_daily_summary(summary, subject, all_recipients)
 
                 # Send webhook notification if configured
                 if self.webhook_notifier:

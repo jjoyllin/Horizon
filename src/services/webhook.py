@@ -380,6 +380,9 @@ class WebhookNotifier:
         """Render the final request URL, body, and headers for the given variables."""
         request_url = cast(str, _render(self.url or "", variables))
 
+        if self.config.sign_enabled:
+            request_url = _add_dingtalk_sign(request_url, self.config)
+
         content_type = "application/x-www-form-urlencoded"
         body_content = None
         raw_body = variables.get("_request_body_override", self.config.request_body)

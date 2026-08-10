@@ -406,6 +406,8 @@ class WebhookConfig(BaseModel):
     languages: Optional[List[str]] = (
         None  # Optional language filter for webhook delivery; defaults to all AI languages
     )
+    sign_enabled: bool = False
+    sign_secret_env: Optional[str] = None
     enabled: bool = False
 
     @field_validator("delivery")
@@ -467,6 +469,7 @@ class EmailConfig(BaseModel):
     sender_name: str = "Horizon Daily"
     subscribe_keyword: str = "SUBSCRIBE"
     unsubscribe_keyword: str = "UNSUBSCRIBE"
+    recipients: Optional[List[str]] = None
     enabled: bool = False
 
 

@@ -10,6 +10,19 @@
     "throttle_sec": 0,
     "languages": ["zh"]
   },
+  "email": {
+    "enabled": true,
+    "smtp_server": "smtp.qq.com",
+    "smtp_port": 465,
+    "imap_server": "imap.qq.com",
+    "imap_port": 993,
+    "email_address": "2974470566@qq.com",
+    "password_env": "EMAIL_PASSWORD",
+    "sender_name": "Horizon Daily",
+    "subscribe_keyword": "SUBSCRIBE",
+    "unsubscribe_keyword": "UNSUBSCRIBE",
+    "recipients": ["2974470566@qq.com"]
+  },
   "sources": {
     "github": [
       {
@@ -116,6 +129,8 @@
     "url_env": "DINGTALK_WEBHOOK_URL",
     "platform": "dingtalk",
     "delivery": "summary",
-    "layout": "markdown"
+    "layout": "markdown",
+    "sign_enabled": true,
+    "sign_secret_env": "DINGTALK_SECRET"
   }
 }

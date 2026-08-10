@@ -47,27 +47,55 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: uv run horizon --hours 24
 
       - name: Send report to DingTalk (optional)
         if: success()
         env:
-          WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
-          SECRET: ${{ secrets.DINGTALK_SECRET }}
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
         run: |
-          REPORT=$(cat docs/daily_report.md 2>/dev/null || echo "今日暂无日报")
-          # 这里可以用钉钉官方签名算法对 timestamp + SECRET 做签名，然后把 sign 与 timestamp 放在 URL 参数
+          TODAY=$(date -u +%Y-%m-%d)
+          REPORT_FILE="data/summaries/horizon-${TODAY}-zh.md"
+          if [ ! -f "$REPORT_FILE" ]; then
+            REPORT_FILE="data/summaries/horizon-${TODAY}-en.md"
+          fi
+          if [ ! -f "$REPORT_FILE" ]; then
+            echo "No summary file found, skipping DingTalk notification"
+            exit 0
+          fi
+          REPORT=$(cat "$REPORT_FILE")
           SIGNED_URL=$(uv run python -c "
-            import os, sys
-            sys.path.insert(0, 'src')
-            from services.webhook import _add_dingtalk_sign
-            from models import WebhookConfig
-            config = WebhookConfig(
-                enabled=True, url_env='WEBHOOK_URL', sign_enabled=True, sign_secret_env='SECRET',
-                request_body=None, headers=None, platform=None, languages=None, delivery=None, overview_position=None
-            )
-            print(_add_dingtalk_sign(os.environ['WEBHOOK_URL'], config))
-            ")
-          curl -X POST "$SIGNED_URL" \
+          import os, sys, json, time, hmac, hashlib, base64
+          from urllib.parse import urlsplit, urlunsplit, urlencode, parse_qsl
+
+          url = os.environ['DINGTALK_WEBHOOK_URL']
+          secret = os.environ.get('DINGTALK_SECRET', '')
+          if secret:
+              timestamp = str(int(time.time() * 1000))
+              string_to_sign = f'{timestamp}\n{secret}'
+              hmac_code = hmac.new(
+                  secret.encode('utf-8'),
+                  string_to_sign.encode('utf-8'),
+                  digestmod=hashlib.sha256
+              ).digest()
+              sign = base64.b64encode(hmac_code).decode('utf-8')
+              parsed = urlsplit(url)
+              query_params = dict(parse_qsl(parsed.query)) if parsed.query else {}
+              query_params['timestamp'] = timestamp
+              query_params['sign'] = sign
+              new_query = urlencode(query_params)
+              url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, new_query, parsed.fragment))
+          print(url)
+          ")
+          PAYLOAD=$(python3 -c "
+          import json, sys
+          report = sys.stdin.read()
+          if len(report) > 18000:
+              report = report[:18000] + '\n\n...(内容过长已截断)'
+          print(json.dumps({'msgtype': 'markdown', 'markdown': {'title': 'Horizon Daily', 'text': report}}, ensure_ascii=False))
+          " <<< "$REPORT")
+          curl -s -X POST "$SIGNED_URL" \
             -H 'Content-Type: application/json' \
-            -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$REPORT\"}}"
+            -d "$PAYLOAD"
